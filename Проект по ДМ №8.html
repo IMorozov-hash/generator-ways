@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Генератор всех путей в лабиринте</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            padding: 30px;
+        }
+
+        @media (max-width: 768px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            color: #2c3e50;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .maze-input textarea {
+            width: 100%;
+            height: 200px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            resize: vertical;
+            background: #fff;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .btn-primary:hover, .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .maze-display {
+            display: grid;
+            gap: 5px;
+            margin-top: 20px;
+        }
+
+        .maze-row {
+            display: flex;
+            gap: 5px;
+        }
+
+        .maze-cell {
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+
+        .cell-wall {
+            background: #343a40;
+            color: white;
+        }
+
+        .cell-path {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .cell-start {
+            background: #4caf50;
+            color: white;
+        }
+
+        .cell-finish {
+            background: #f44336;
+            color: white;
+        }
+
+        .cell-visited {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .cell-current {
+            background: #007bff;
+            color: white;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .results {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .statistics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .path-list {
+            margin-top: 20px;
+        }
+
+        .path-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 5px solid #667eea;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        .path-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .path-length {
+            background: #6f42c1;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+
+        .path-details {
+            font-family: 'Courier New', monospace;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+
+        .directions {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .direction-arrow {
+            background: #e9ecef;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #f5c6cb;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #c3e6cb;
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            color: #6c757d;
+            border-top: 1px solid #dee2e6;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 20px 0;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+
+        .samples {
+            margin-top: 20px;
+        }
+
+        .sample-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .btn-sample {
+            background: #e9ecef;
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 Генератор всех путей в лабиринте</h1>
+            <p class="subtitle">Поиск всех возможных маршрутов от старта до финиша без циклов</p>
+        </header>
+
+        <main>
+            <div class="section">
+                <h2>📝 Ввод лабиринта</h2>
+                <div class="maze-input">
+                    <textarea id="mazeInput" placeholder="Введите лабиринт:
+Пример:
+#####
+#S..#
+#.#.#
+#...#
+###F#
+                        
+Символы:
+'#' - стена
+'.' - проход
+'S' - старт
+'F' - финиш"></textarea>
+                    
+                    <div class="samples">
+                        <p>Примеры лабиринтов:</p>
+                        <div class="sample-buttons">
+                            <button class="btn-sample" onclick="loadSample(0)">Простой (3x3)</button>
+                            <button class="btn-sample" onclick="loadSample(1)">Средний (5x5)</button>
+                            <button class="btn-sample" onclick="loadSample(2)">Сложный (7x7)</button>
+                            <button class="btn-sample" onclick="loadSample(3)">Без стен (4x5)</button>
+                            <button class="btn-sample" onclick="loadSample(4)">Тупиковый (6x8)</button>
+                        </div>
+                    </div>
+
+                    <div class="legend">
+                        <div class="legend-item">
+                            <div class="legend-color cell-start"></div>
+                            <span>Старт (S)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color cell-finish"></div>
+                            <span>Финиш (F)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color cell-wall"></div>
+                            <span>Стена (#)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color cell-path"></div>
+                            <span>Путь (.)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color cell-current"></div>
+                            <span>Текущий путь</span>
+                        </div>
+                    </div>
+
+                    <div class="controls">
+                        <button class="btn-primary" onclick="solveMaze()">🔍 Найти все пути</button>
+                        <button class="btn-secondary" onclick="clearMaze()">🧹 Очистить</button>
+                        <button class="btn-secondary" onclick="visualizeSearch()">🎬 Визуализировать поиск</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>📊 Результаты</h2>
+                <div id="mazeContainer" class="maze-display">
+                    <!-- Лабиринт будет отображаться здесь -->
+                </div>
+                
+                <div id="resultsContainer" class="results">
+                    <!-- Результаты будут отображаться здесь -->
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Проект 8: Генератор всех путей в лабиринте (без циклов)</p>
+            <p>Используется алгоритм поиска в глубину с возвратом (Backtracking)</p>
+        </footer>
+    </div>
+
+    <script>
+        // Примеры лабиринтов
+        const sampleMazes = [
+            // Простой (3x3)
+            "###\n#SF#\n#.#",
+            
+            // Средний (5x5)
+            "#####\n#S..#\n#.#.#\n#...#\n###F#",
+            
+            // Сложный (7x7)
+            "#######\n#S....#\n#.###.#\n#.#...#\n#.#.#.#\n#....F#\n#######",
+            
+            // Без стен (4x5)
+            ".....\n.S.F.\n.....\n.....",
+            
+            // Тупиковый (6x8)
+            "########\n#S..#..#\n#.#.#..#\n#......#\n##.##.##\n#F.....#\n########"
+        ];
+
+        let allPaths = [];
+        let currentMaze = null;
+        let isVisualizing = false;
+
+        // Загрузка примера лабиринта
+        function loadSample(index) {
+            document.getElementById('mazeInput').value = sampleMazes[index];
+            solveMaze();
+        }
+
+        // Очистка лабиринта
+        function clearMaze() {
+            document.getElementById('mazeInput').value = '';
+            document.getElementById('mazeContainer').innerHTML = '';
+            document.getElementById('resultsContainer').innerHTML = '';
+            allPaths = [];
+            currentMaze = null;
+            isVisualizing = false;
+        }
+
+        // Парсинг лабиринта
+        function parseMaze(input) {
+            const rows = input.trim().split('\n');
+            const maze = [];
+            let start = null;
+            let finish = null;
+
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i].trim();
+                if (row.length === 0) continue;
+                
+                const cells = row.split('');
+                maze.push(cells);
+                
+                for (let j = 0; j < cells.length; j++) {
+                    if (cells[j] === 'S') start = {x: i, y: j};
+                    if (cells[j] === 'F') finish = {x: i, y: j};
+                }
+            }
+
+            if (!start) throw new Error('Старт (S) не найден');
+            if (!finish) throw new Error('Финиш (F) не найден');
+
+            return { maze, start, finish };
+        }
+
+        // Отображение лабиринта
+        function displayMaze(maze, highlightPath = null) {
+            const container = document.getElementById('mazeContainer');
+            container.innerHTML = '';
+
+            for (let i = 0; i < maze.length; i++) {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'maze-row';
+
+                for (let j = 0; j < maze[i].length; j++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'maze-cell';
+                    
+                    let cellClass = '';
+                    let cellContent = maze[i][j];
+                    
+                    switch (maze[i][j]) {
+                        case '#':
+                            cellClass = 'cell-wall';
+                            break;
+                        case 'S':
+                            cellClass = 'cell-start';
+                            break;
+                        case 'F':
+                            cellClass = 'cell-finish';
+                            break;
+                        case '.':
+                            cellClass = 'cell-path';
+                            break;
+                        default:
+                            cellClass = 'cell-path';
+                    }
+
+                    // Подсветка пути, если указан
+                    if (highlightPath && highlightPath.some(p => p.x === i && p.y === j)) {
+                        if (maze[i][j] !== 'S' && maze[i][j] !== 'F') {
+                            cellClass = 'cell-current';
+                            cellContent = '•';
+                        }
+                    }
+
+                    cell.className = `maze-cell ${cellClass}`;
+                    cell.textContent = cellContent;
+                    rowDiv.appendChild(cell);
+                }
+                container.appendChild(rowDiv);
+            }
+        }
+
+        // Получение всех соседних клеток
+        function getNeighbors(x, y, maze) {
+            const directions = [
+                {dx: -1, dy: 0, symbol: '↑'},  // вверх
+                {dx: 1, dy: 0, symbol: '↓'},   // вниз
+                {dx: 0, dy: -1, symbol: '←'},  // влево
+                {dx: 0, dy: 1, symbol: '→'}    // вправо
+            ];
+            
+            const neighbors = [];
+            for (const dir of directions) {
+                const nx = x + dir.dx;
+                const ny = y + dir.dy;
+                
+                if (nx >= 0 && nx < maze.length && ny >= 0 && ny < maze[0].length) {
+                    if (maze[nx][ny] !== '#') {
+                        neighbors.push({x: nx, y: ny, direction: dir.symbol});
+                    }
+                }
+            }
+            return neighbors;
+        }
+
+        // Поиск всех путей (DFS с возвратом)
+        function findAllPaths(maze, start, finish) {
+            const paths = [];
+            const visited = new Set();
+            const maxSteps = maze.length * maze[0].length;
+
+            function dfs(x, y, path, directions) {
+                const key = `${x},${y}`;
+                
+                // Проверка на циклы
+                if (visited.has(key)) return;
+                
+                // Добавляем текущую клетку
+                visited.add(key);
+                path.push({x, y});
+                
+                // Если достигли финиша
+                if (x === finish.x && y === finish.y) {
+                    paths.push({
+                        path: [...path],
+                        directions: [...directions],
+                        length: path.length - 1
+                    });
+                } else if (path.length < maxSteps) {
+                    // Ищем соседей
+                    const neighbors = getNeighbors(x, y, maze);
+                    
+                    for (const neighbor of neighbors) {
+                        if (!visited.has(`${neighbor.x},${neighbor.y}`)) {
+                            directions.push(neighbor.direction);
+                            dfs(neighbor.x, neighbor.y, path, directions);
+                            directions.pop();
+                        }
+                    }
+                }
+                
+                // Возврат (backtracking)
+                visited.delete(key);
+                path.pop();
+            }
+
+            dfs(start.x, start.y, [], []);
+            return paths.sort((a, b) => a.length - b.length);
+        }
+
+        // Форматирование пути
+        function formatPath(path) {
+            return path.map((p, i) => {
+                if (i === 0) return `S(${p.x},${p.y})`;
+                if (i === path.length - 1) return `F(${p.x},${p.y})`;
+                return `(${p.x},${p.y})`;
+            }).join(' → ');
+        }
+
+        // Визуализация процесса поиска
+        async function visualizeSearch() {
+            if (isVisualizing) return;
+            
+            const input = document.getElementById('mazeInput').value;
+            if (!input.trim()) {
+                alert('Пожалуйста, введите лабиринт');
+                return;
+            }
+
+            try {
+                isVisualizing = true;
+                const { maze, start, finish } = parseMaze(input);
+                currentMaze = maze;
+                
+                const container = document.getElementById('mazeContainer');
+                container.innerHTML = '<div class="success">Визуализация поиска... Нажмите "Найти все пути" для получения результатов</div>';
+                displayMaze(maze);
+                
+                // Создаем копию лабиринта для визуализации
+                const visualMaze = maze.map(row => [...row]);
+                const visited = new Set();
+                let foundPaths = 0;
+                
+                async function dfsVisual(x, y, path) {
+                    const key = `${x},${y}`;
+                    
+                    if (visited.has(key)) return;
+                    
+                    visited.add(key);
+                    path.push({x, y});
+                    
+                    // Визуализация текущей клетки
+                    if (visualMaze[x][y] !== 'S' && visualMaze[x][y] !== 'F') {
+                        visualMaze[x][y] = '*';
+                        displayMaze(visualMaze, [{x, y}]);
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
+                    
+                    // Если достигли финиша
+                    if (x === finish.x && y === finish.y) {
+                        foundPaths++;
+                        // Подсветка найденного пути
+                        displayMaze(maze, path);
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                    
+                    // Ищем соседей
+                    const neighbors = getNeighbors(x, y, maze);
+                    for (const neighbor of neighbors) {
+                        if (!visited.has(`${neighbor.x},${neighbor.y}`)) {
+                            await dfsVisual(neighbor.x, neighbor.y, path);
+                        }
+                    }
+                    
+                    // Возврат
+                    visited.delete(key);
+                    path.pop();
+                    
+                    // Визуализация возврата
+                    if (visualMaze[x][y] !== 'S' && visualMaze[x][y] !== 'F') {
+                        visualMaze[x][y] = '.';
+                        displayMaze(visualMaze);
+                        await new Promise(resolve => setTimeout(resolve, 50));
+                    }
+                }
+                
+                await dfsVisual(start.x, start.y, []);
+                displayMaze(maze);
+                
+                const resultsContainer = document.getElementById('resultsContainer');
+                resultsContainer.innerHTML = `
+                    <div class="success">
+                        Визуализация завершена! Найдено путей во время визуализации: ${foundPaths}<br>
+                        Нажмите "Найти все пути" для получения полных результатов.
+                    </div>
+                `;
+                
+            } catch (error) {
+                document.getElementById('resultsContainer').innerHTML = `
+                    <div class="error">Ошибка: ${error.message}</div>
+                `;
+            } finally {
+                isVisualizing = false;
+            }
+        }
+
+        // Основная функция решения
+        function solveMaze() {
+            const input = document.getElementById('mazeInput').value;
+            if (!input.trim()) {
+                alert('Пожалуйста, введите лабиринт');
+                return;
+            }
+
+            try {
+                const { maze, start, finish } = parseMaze(input);
+                currentMaze = maze;
+                
+                // Отображаем лабиринт
+                displayMaze(maze);
+                
+                // Ищем все пути
+                allPaths = findAllPaths(maze, start, finish);
+                
+                // Отображаем результаты
+                displayResults(allPaths, maze);
+                
+            } catch (error) {
+                document.getElementById('resultsContainer').innerHTML = `
+                    <div class="error">Ошибка: ${error.message}</div>
+                `;
+            }
+        }
+
+        // Отображение результатов
+        function displayResults(paths, maze) {
+            const container = document.getElementById('resultsContainer');
+            
+            if (paths.length === 0) {
+                container.innerHTML = `
+                    <div class="error">
+                        Пути от S до F не найдены!
+                    </div>
+                `;
+                return;
+            }
+
+            // Статистика
+            const lengths = paths.map(p => p.length);
+            const shortest = Math.min(...lengths);
+            const longest = Math.max(...lengths);
+            const average = (lengths.reduce((a, b) => a + b, 0) / lengths.length).toFixed(2);
+            
+            let html = `
+                <div class="statistics">
+                    <div class="stat-card">
+                        <div class="stat-value">${paths.length}</div>
+                        <div class="stat-label">Всего путей</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${shortest}</div>
+                        <div class="stat-label">Кратчайший</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${longest}</div>
+                        <div class="stat-label">Самый длинный</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${average}</div>
+                        <div class="stat-label">Средняя длина</div>
+                    </div>
+                </div>
+            `;
+
+            // Кратчайший путь
+            const shortestPath = paths[0];
+            html += `
+                <div class="path-item">
+                    <div class="path-item-header">
+                        <strong>🏆 Кратчайший путь</strong>
+                        <span class="path-length">${shortestPath.length} шагов</span>
+                    </div>
+                    <div class="path-details">${formatPath(shortestPath.path)}</div>
+                    <div class="directions">
+                        ${shortestPath.directions.map(dir => 
+                            `<span class="direction-arrow">${dir}</span>`
+                        ).join('')}
+                    </div>
+                    <button onclick="showPath(${0})" style="margin-top:10px; background:#4caf50; color:white; border:none; padding:5px 15px; border-radius:4px; cursor:pointer">
+                        👁️ Показать на карте
+                    </button>
+                </div>
+            `;
+
+            // Самый длинный путь
+            const longestPath = paths[paths.length - 1];
+            html += `
+                <div class="path-item">
+                    <div class="path-item-header">
+                        <strong>🐌 Самый длинный путь</strong>
+                        <span class="path-length">${longestPath.length} шагов</span>
+                    </div>
+                    <div class="path-details">${formatPath(longestPath.path)}</div>
+                    <div class="directions">
+                        ${longestPath.directions.map(dir => 
+                            `<span class="direction-arrow">${dir}</span>`
+                        ).join('')}
+                    </div>
+                    <button onclick="showPath(${paths.length - 1})" style="margin-top:10px; background:#f44336; color:white; border:none; padding:5px 15px; border-radius:4px; cursor:pointer">
+                        👁️ Показать на карте
+                    </button>
+                </div>
+            `;
+
+            // Все пути
+            if (paths.length > 2) {
+                html += `
+                    <div class="path-list">
+                        <h3 style="margin:20px 0 10px 0; color:#2c3e50;">📋 Все пути (${paths.length})</h3>
+                `;
+                
+                paths.forEach((path, index) => {
+                    html += `
+                        <div class="path-item" style="border-left-color: ${index === 0 ? '#4caf50' : index === paths.length-1 ? '#f44336' : '#667eea'}">
+                            <div class="path-item-header">
+                                <strong>Путь ${index + 1}</strong>
+                                <span class="path-length">${path.length} шагов</span>
+                            </div>
+                            <div class="path-details">${formatPath(path.path)}</div>
+                            <button onclick="showPath(${index})" style="margin-top:10px; background:#667eea; color:white; border:none; padding:5px 15px; border-radius:4px; cursor:pointer">
+                                👁️ Показать
+                            </button>
+                        </div>
+                    `;
+                });
+                
+                html += `</div>`;
+            }
+
+            container.innerHTML = html;
+        }
+
+        // Показать путь на карте
+        function showPath(index) {
+            if (currentMaze && allPaths[index]) {
+                displayMaze(currentMaze, allPaths[index].path);
+                
+                // Прокрутить к верху лабиринта
+                document.getElementById('mazeContainer').scrollIntoView({
+                    behavior: 'smooth'
+                });
+            }
+        }
+
+        // Загружаем первый пример при загрузке страницы
+        window.onload = function() {
+            loadSample(0);
+        };
+    </script>
+</body>
+</html>
