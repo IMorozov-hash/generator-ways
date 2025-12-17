@@ -1,4 +1,5 @@
-from typing import List, Tuple, Set
+from typing import List, Tuple, Set, Optional
+import sys
 
 
 class MazePathFinder:
@@ -9,44 +10,68 @@ class MazePathFinder:
         self.start = None
         self.finish = None
         self.paths = []
-        self.directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # Вверх, вниз, влево, вправо
+        self.directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
         self.direction_chars = ['↑', '↓', '←', '→']
+
+    def read_maze_recursive(self, rows: List[str] = None) -> List[str]:
+        """Рекурсивное чтение лабиринта из ввода"""
+        if rows is None:
+            rows = []
+
+        try:
+            line = input().strip()
+            if not line:
+                return rows
+            return self.read_maze_recursive(rows + [line])
+        except EOFError:
+            return rows
+
+    def validate_row_lengths(self, index: int = 0) -> bool:
+        """Рекурсивная проверка длин строк"""
+        if index >= self.n:
+            return True
+
+        if len(self.maze[index]) != self.m:
+            print(f"Ошибка: строка {index} имеет длину {len(self.maze[index])}, ожидалось {self.m}")
+            exit(1)
+
+        return self.validate_row_lengths(index + 1)
+
+    def find_start_finish_recursive(self, i: int = 0, j: int = 0) -> None:
+        """Рекурсивный поиск старта и финиша"""
+        if i >= self.n:
+            return
+
+        cell = self.maze[i][j]
+        if cell == 'S':
+            self.start = (i, j)
+        elif cell == 'F':
+            self.finish = (i, j)
+
+        next_j = j + 1
+        next_i = i
+
+        if next_j >= self.m:
+            next_j = 0
+            next_i = i + 1
+
+        self.find_start_finish_recursive(next_i, next_j)
 
     def read_maze(self) -> None:
         """Чтение лабиринта из ввода"""
         print("Введите лабиринт (пустые строки для завершения):")
-        rows = []
 
-        while True:
-            try:
-                line = input().strip()
-                if not line:
-                    break
-                rows.append(line)
-            except EOFError:
-                break
+        self.maze = self.read_maze_recursive()
 
-        if not rows:
+        if not self.maze:
             print("Лабиринт не введен!")
             exit(1)
 
-        self.maze = rows
-        self.n = len(rows)
-        self.m = len(rows[0])
+        self.n = len(self.maze)
+        self.m = len(self.maze[0])
 
-        # Проверка размеров
-        for i in range(self.n):
-            if len(self.maze[i]) != self.m:
-                print(f"Ошибка: строка {i} имеет длину {len(self.maze[i])}, ожидалось {self.m}")
-                exit(1)
-
-        # Поиск старта и финиша
-        for i in range(self.n):
-            for j in range(self.m):
-                if self.maze[i][j] == 'S':
-                    self.start = (i, j)
-                elif self.maze[i][j] == 'F':
-                    self.finish = (i, j)
+        self.validate_row_lengths()
+        self.find_start_finish_recursive()
 
         if not self.start:
             print("Ошибка: старт (S) не найден!")
@@ -65,23 +90,28 @@ class MazePathFinder:
 
     def dfs(self, x: int, y: int, visited: Set[Tuple[int, int]], path: List[Tuple[int, int]]) -> None:
         """Поиск в глубину для нахождения всех путей"""
-        # Добавляем текущую клетку в посещенные и путь
         visited.add((x, y))
         path.append((x, y))
 
-        # Если достигли финиша
         if (x, y) == self.finish:
             self.paths.append(path.copy())
         else:
-            # Максимальная длина пути для предотвращения бесконечной рекурсии
             if len(path) < self.n * self.m:
-                # Пробуем все направления
-                for dx, dy in self.directions:
+                # Рекурсивная обработка направлений
+                def process_direction(idx: int = 0) -> None:
+                    if idx >= len(self.directions):
+                        return
+
+                    dx, dy = self.directions[idx]
                     nx, ny = x + dx, y + dy
+
                     if self.is_passable(nx, ny) and (nx, ny) not in visited:
                         self.dfs(nx, ny, visited, path)
 
-        # Возврат (backtracking)
+                    process_direction(idx + 1)
+
+                process_direction()
+
         visited.remove((x, y))
         path.pop()
 
@@ -92,57 +122,177 @@ class MazePathFinder:
         self.dfs(self.start[0], self.start[1], visited, path)
 
     def get_path_length(self, path: List[Tuple[int, int]]) -> int:
-        """Длина пути (количество шагов от S до F)"""
-        return len(path) - 1  # -1 потому что начальная клетка не считается шагом
+        """Длина пути"""
+        return len(path) - 1
 
-    def get_path_directions(self, path: List[Tuple[int, int]]) -> List[str]:
-        """Получение направления движения для каждого шага"""
-        directions = []
-        for i in range(1, len(path)):
-            x1, y1 = path[i - 1]
-            x2, y2 = path[i]
-            dx, dy = x2 - x1, y2 - y1
+    def get_path_directions_recursive(self, path: List[Tuple[int, int]], idx: int = 1, directions: List[str] = None) -> \
+    List[str]:
+        """Рекурсивное получение направлений движения"""
+        if directions is None:
+            directions = []
 
-            for dir_idx, (dir_dx, dir_dy) in enumerate(self.directions):
-                if dir_dx == dx and dir_dy == dy:
-                    directions.append(self.direction_chars[dir_idx])
-                    break
+        if idx >= len(path):
+            return directions
 
-        return directions
+        x1, y1 = path[idx - 1]
+        x2, y2 = path[idx]
+        dx, dy = x2 - x1, y2 - y1
 
-    def format_path(self, path: List[Tuple[int, int]]) -> str:
-        """Форматирование пути для вывода"""
-        if not path:
-            return "Путь пуст"
+        def find_direction(dir_idx: int = 0) -> str:
+            if dir_idx >= len(self.directions):
+                return '?'
 
-        # Получаем направления
-        directions = self.get_path_directions(path)
+            dir_dx, dir_dy = self.directions[dir_idx]
+            if dir_dx == dx and dir_dy == dy:
+                return self.direction_chars[dir_idx]
 
-        # Формируем строку пути
-        result = f"S({path[0][0]},{path[0][1]})"
-        for i in range(1, len(path)):
-            result += f" {directions[i - 1]} "
-            if (path[i][0], path[i][1]) == self.finish:
-                result += f"F({path[i][0]},{path[i][1]})"
-            else:
-                result += f"({path[i][0]},{path[i][1]})"
+            return find_direction(dir_idx + 1)
 
-        return result
+        directions.append(find_direction())
+        return self.get_path_directions_recursive(path, idx + 1, directions)
+
+    def format_path_recursive(self, path: List[Tuple[int, int]], idx: int = 0, result: str = "") -> str:
+        """Рекурсивное форматирование пути для вывода"""
+        if idx >= len(path):
+            return result
+
+        x, y = path[idx]
+
+        if idx == 0:
+            current = f"S({x},{y})"
+        elif (x, y) == self.finish:
+            current = f"F({x},{y})"
+        else:
+            current = f"({x},{y})"
+
+        if idx == 0:
+            new_result = current
+        else:
+            # Получаем направление для этого шага
+            directions = self.get_path_directions_recursive(path)
+            new_result = f"{result} {directions[idx - 1]} {current}"
+
+        return self.format_path_recursive(path, idx + 1, new_result)
+
+    def create_maze_with_path(self, path: List[Tuple[int, int]], display: List[List[str]] = None, idx: int = 1) -> List[
+        List[str]]:
+        """Рекурсивное создание лабиринта с отмеченным путем"""
+        if display is None:
+            display = [list(row) for row in self.maze]
+
+        if idx >= len(path) - 1:
+            return display
+
+        x, y = path[idx]
+        display[x][y] = '*'
+
+        return self.create_maze_with_path(path, display, idx + 1)
+
+    def print_maze_row(self, display: List[List[str]], row_idx: int = 0) -> None:
+        """Рекурсивный вывод строк лабиринта"""
+        if row_idx >= len(display):
+            return
+
+        print(''.join(display[row_idx]))
+        self.print_maze_row(display, row_idx + 1)
 
     def print_maze_with_path(self, path: List[Tuple[int, int]]) -> None:
         """Вывод лабиринта с отмеченным путем"""
-        # Создаем копию лабиринта для отображения
-        display = [list(row) for row in self.maze]
-
-        # Отмечаем путь (кроме старта и финиша)
-        for i in range(1, len(path) - 1):
-            x, y = path[i]
-            display[x][y] = '*'
-
-        # Выводим лабиринт
+        display = self.create_maze_with_path(path)
         print("Лабиринт с путем:")
-        for row in display:
-            print(''.join(row))
+        self.print_maze_row(display)
+
+    def quicksort_paths(self, paths: List[List[Tuple[int, int]]]) -> List[List[Tuple[int, int]]]:
+        """Быстрая сортировка путей по длине"""
+        if len(paths) <= 1:
+            return paths
+
+        pivot = paths[len(paths) // 2]
+        pivot_length = self.get_path_length(pivot)
+
+        left = []
+        middle = []
+        right = []
+
+        def partition(idx: int = 0):
+            if idx >= len(paths):
+                return
+
+            path = paths[idx]
+            length = self.get_path_length(path)
+
+            if length < pivot_length:
+                left.append(path)
+            elif length == pivot_length:
+                middle.append(path)
+            else:
+                right.append(path)
+
+            partition(idx + 1)
+
+        partition()
+
+        return self.quicksort_paths(left) + middle + self.quicksort_paths(right)
+
+    def print_path_info(self, path: List[Tuple[int, int]], path_num: int) -> None:
+        """Вывод информации об одном пути"""
+        length = self.get_path_length(path)
+        print(f"Путь {path_num} (длина {length}): {self.format_path_recursive(path)}")
+
+    def print_all_paths(self, paths: List[List[Tuple[int, int]]], idx: int = 1) -> None:
+        """Рекурсивный вывод всех путей"""
+        if idx > len(paths):
+            return
+
+        self.print_path_info(paths[idx - 1], idx)
+        self.print_all_paths(paths, idx + 1)
+
+    def calculate_lengths(self, paths: List[List[Tuple[int, int]]], idx: int = 0, lengths: List[int] = None) -> List[
+        int]:
+        """Рекурсивный расчет длин всех путей"""
+        if lengths is None:
+            lengths = []
+
+        if idx >= len(paths):
+            return lengths
+
+        lengths.append(self.get_path_length(paths[idx]))
+        return self.calculate_lengths(paths, idx + 1, lengths)
+
+    def quicksort_lengths(self, arr: List[int]) -> List[int]:
+        """Быстрая сортировка длин"""
+        if len(arr) <= 1:
+            return arr
+
+        pivot = arr[len(arr) // 2]
+
+        left = []
+        middle = []
+        right = []
+
+        def partition(idx: int = 0):
+            if idx >= len(arr):
+                return
+
+            if arr[idx] < pivot:
+                left.append(arr[idx])
+            elif arr[idx] == pivot:
+                middle.append(arr[idx])
+            else:
+                right.append(arr[idx])
+
+            partition(idx + 1)
+
+        partition()
+
+        return self.quicksort_lengths(left) + middle + self.quicksort_lengths(right)
+
+    def sum_list(self, arr: List[int], idx: int = 0, total: int = 0) -> int:
+        """Рекурсивная сумма элементов списка"""
+        if idx >= len(arr):
+            return total
+
+        return self.sum_list(arr, idx + 1, total + arr[idx])
 
     def print_results(self) -> None:
         """Вывод всех результатов"""
@@ -150,47 +300,43 @@ class MazePathFinder:
             print("Пути от S до F не найдены!")
             return
 
-        # Сортируем пути по длине
-        self.paths.sort(key=lambda p: self.get_path_length(p))
+        self.paths = self.quicksort_paths(self.paths)
 
         print(f"\nНайдено путей: {len(self.paths)}")
         print("-" * 50)
 
-        # Выводим все пути с их длинами
         print("Все пути от кратчайшего к самому длинному:")
-        for i, path in enumerate(self.paths, 1):
-            length = self.get_path_length(path)
-            print(f"Путь {i} (длина {length}): {self.format_path(path)}")
+        self.print_all_paths(self.paths)
 
         print("-" * 50)
 
-        # Кратчайший путь
         shortest_path = self.paths[0]
         shortest_length = self.get_path_length(shortest_path)
         print(f"Кратчайший путь (длина {shortest_length}):")
-        print(self.format_path(shortest_path))
+        print(self.format_path_recursive(shortest_path))
         self.print_maze_with_path(shortest_path)
 
         print("-" * 50)
 
-        # Самый длинный путь
         longest_path = self.paths[-1]
         longest_length = self.get_path_length(longest_path)
         print(f"Самый длинный путь (длина {longest_length}):")
-        print(self.format_path(longest_path))
+        print(self.format_path_recursive(longest_path))
         self.print_maze_with_path(longest_path)
 
         print("-" * 50)
 
-        # Статистика по длинам
-        lengths = [self.get_path_length(path) for path in self.paths]
-        print(f"Длины всех путей: {sorted(lengths)}")
-        print(f"Средняя длина: {sum(lengths) / len(lengths):.2f}")
+        lengths = self.calculate_lengths(self.paths)
+        sorted_lengths = self.quicksort_lengths(lengths)
+        total_length = self.sum_list(lengths)
+
+        print(f"Длины всех путей: {sorted_lengths}")
+        print(f"Средняя длина: {total_length / len(lengths):.2f}")
 
     def run(self) -> None:
         """Основной метод запуска программы"""
         print("=" * 60)
-        print("ГЕНЕРАТОР ВСЕХ ПУТЕЙ В ЛАБИРИНТЕ (БЕЗ ЦИКЛОВ)")
+        print("ГЕНЕРАТОР ВСЕХ ПУТЕЙ В ЛАБИРИНТЕ (РЕКУРСИВНАЯ ВЕРСИЯ)")
         print("=" * 60)
 
         self.read_maze()
@@ -198,7 +344,6 @@ class MazePathFinder:
 
         self.find_all_paths()
         self.print_results()
-
 
 
 def main():
